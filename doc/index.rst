@@ -1,0 +1,2 @@
+Payment Collect Mipago Module
+#############################

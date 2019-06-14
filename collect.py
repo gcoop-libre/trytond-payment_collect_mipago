@@ -20,7 +20,6 @@ class Collect(metaclass=PoolMeta):
         # 1,cliente1@gcoop.coop,"Cliente 1","Test 1",20353172558,"Test 1",Pendiente,2019-05-30,100.00,,
         # 2,cliente2@gcoop.coop,"Cliente 2","Test 1",20353172558,"Test 1",Pagada,2019-05-30,100.00,,20.10
         # se itera por el archivo y genero relaciones con las facturas.
-        # este tipo de codigo se debe pasar al create_invoices.
 
         pool = Pool()
         Invoice = pool.get('account.invoice')
@@ -28,6 +27,11 @@ class Collect(metaclass=PoolMeta):
         PartyIdentifier = pool.get('party.identifier')
         Account = pool.get('account.account')
         CollectTransaction = pool.get('payment.collect.transaction')
+        Configuration = Pool().get('payment_collect.configuration')
+        config = Configuration(1)
+        payment_method = config.payment_method
+        if config.payment_method_mipago:
+            payment_method = config.payment_method_mipago
         parties = []
         invoices = []
         account_revenue, = Account.search([
@@ -50,51 +54,39 @@ class Collect(metaclass=PoolMeta):
                         party, = Party.search([('identifiers.code', '=',
                                     line.get('customer_email'))])
 
-                    try:
-                        invoice, = Invoice.search([
-                            ('reference', '=', line.get('transaction_title')),
-                            ('state', '=', 'posted'),
-                            ])
-                        if line.get('transaction_state') == 'Pagada':
-                            invoice.collect_transactions.append(
-                                CollectTransaction(
-                                    collect_result='A',
-                                    collect_message=line.get('transaction_state'),
-                                    collect=collect,
-                                    pay_date=today,
-                                    pay_amount=Decimal(line.get(
+                    invoices = Invoice.search([
+                        ('reference', '=', line.get('transaction_id')),
+                        ('state', '!=', 'cancel'),
+                        ])
+                    if invoices:
+                        invoice, = invoices
+                    else:
+                        # create invoice
+                        invoice = Invoice()
+                        invoice.type = 'out'
+                        invoice.party = party
+                        invoice.on_change_type()
+                        invoice.on_change_party()
+                        invoice.state = 'draft'
+                        # invoice.pos = pos
+                        # invoice.on_change_pos()
+                        # invoice.invoice_type = invoice.on_change_with_invoice_type()
+                        # invoice.pyafipws_concept = '1'
+                        # invoice.set_pyafipws_billing_dates()
+                        invoice.lines.append(InvoiceLine(
+                                account=account_revenue,
+                                description='',
+                                quantity=1.0,
+                                unit_price=Decimal(line.get(
                                         'transaction_first_overdue_amount')),
-                                    payment_method=payment_method,
-                                    ))
-                    except:
-                        pass
-                    # create invoice
-                    invoice = Invoice()
-                    invoice.type = 'out'
-                    invoice.party = party
-                    invoice.on_change_type()
-                    invoice.on_change_party()
-                    invoice.state = 'draft'
-                    invoice.on_change_pos()
-                    invoice.invoice_type = invoice.on_change_with_invoice_type()
-                    invoice.pyafipws_concept = '2'
-                    invoice.set_pyafipws_billing_dates()
-                    invoice.save()
-                    Invoice.validate_invoice([invoice])
-                    invoice.lines.append(InvoiceLine(
-                            account=account_revenue,
-                            description='',
-                            quantity=1.0,
-                            unit_price=Decimal(line.get(
-                                    'transaction_first_overdue_amount')),
-                            ))
-                    # FIXME: add taxes
-                    invoice.lines.taxes.append(Tax(name='IVA 21%'))
-
-                    if line.get('transaction_state') == 'Pagada':
+                                ))
+                        # FIXME: add taxes
+                        # invoice.lines.taxes.append(Tax(name='IVA 21%'))
+                    if (invoice.state != 'paid' and
+                            invoice.line.get('transaction_state') == 'Pagada'):
                         invoice.collect_transactions.append(
                             CollectTransaction(
-                                collect_result='A',
+                                collect_result='A', # paid accepeted
                                 collect_message=line.get('transaction_state'),
                                 collect=collect,
                                 pay_date=today,
@@ -102,10 +94,11 @@ class Collect(metaclass=PoolMeta):
                                     'transaction_first_overdue_amount')),
                                 payment_method=payment_method,
                                 ))
-                    else:
+                    elif (invoice.state != 'paid' and
+                            invoice.line.get('transaction_state') != 'Pagada'):
                         invoice.collect_transactions.append(
                             CollectTransaction(
-                                collect_result='P',
+                                collect_result='P', # paid pending
                                 collect_message=line.get('transaction_state'),
                                 collect=collect,
                                 pay_date=today,

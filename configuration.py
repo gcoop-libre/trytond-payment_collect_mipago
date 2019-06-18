@@ -11,7 +11,8 @@ __all__ = ['Configuration', 'ConfigurationPaymentCollectMiPago']
 class Configuration(metaclass=PoolMeta):
     __name__ = 'payment_collect.configuration'
     payment_method_mipago = fields.MultiValue(fields.Many2One(
-            'account.invoice.payment.method', "Payment Method", required=True))
+            'account.invoice.payment.method', "Payment Method Mi Pago",
+            required=True))
     mipago_company_code = fields.MultiValue(fields.Char('Comany code MiPago'))
 
     @classmethod
@@ -29,5 +30,5 @@ class ConfigurationPaymentCollectMiPago(ModelSQL, CompanyValueMixin):
     __name__ = 'payment_collect.configuration.mipago'
 
     payment_method_mipago = fields.Many2One('account.invoice.payment.method',
-        "Payment Method")
+        "Payment Method MiPago")
     mipago_company_code = fields.Char('Compay code MiPago')

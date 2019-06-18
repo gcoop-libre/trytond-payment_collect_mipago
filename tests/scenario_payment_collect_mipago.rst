@@ -1,6 +1,6 @@
-=============================
-Payment Collect BCCL Scenario
-=============================
+===============================
+Payment Collect MiPago Scenario
+===============================
 
 Imports::
     >>> import datetime
@@ -19,7 +19,7 @@ Imports::
 
 Install account_invoice::
 
-    >>> config = activate_modules('payment_collect_bccl')
+    >>> config = activate_modules('payment_collect_mipago')
 
 Create company::
 
@@ -52,7 +52,7 @@ Create chart of accounts::
 Create tax::
 
     >>> TaxCode = Model.get('account.tax.code')
-    >>> tax = create_tax(Decimal('.10'))
+    >>> tax = create_tax(Decimal('.21'))
     >>> tax.save()
     >>> invoice_base_code = create_tax_code(tax, 'base', 'invoice')
     >>> invoice_base_code.save()
@@ -70,61 +70,27 @@ Create payment method::
     >>> Sequence = Model.get('ir.sequence')
     >>> journal_cash, = Journal.find([('type', '=', 'cash')])
     >>> payment_method = PaymentMethod()
-    >>> payment_method.name = 'Cash'
+    >>> payment_method.name = 'Cobranza MiPago'
     >>> payment_method.journal = journal_cash
     >>> payment_method.credit_account = account_cash
     >>> payment_method.debit_account = account_cash
     >>> payment_method.save()
 
-Create desc BCCL::
-
-    >>> DescPayModeBCCL = Model.get('payment.paymode.bccl.desc')
-    >>> desc_bccl = DescPayModeBCCL()
-    >>> desc_bccl.name = 'SERVICE'
-    >>> desc_bccl.positions =10
-    >>> desc_bccl.save()
-
 Create party::
 
     >>> Party = Model.get('party.party')
     >>> party = Party(name='Party')
+    >>> identifier = party.identifiers.new()
+    >>> identifier.type = 'mipago'
+    >>> identifier.code = 'tryton@example.org'
     >>> party.save()
-
-Create a bank::
-
-    >>> Bank = Model.get('bank')
-    >>> bank = Bank()
-    >>> bank.party = party
-    >>> bank.save()
-
-Create bank account::
-
-    >>> Account = Model.get('bank.account')
-    >>> Number = Model.get('bank.account.number')
-    >>> account = Account()
-    >>> account.bank = bank
-    >>> account.journal = journal_cash
-    >>> account.credit_account = account_cash 
-    >>> account.debit_account = account_cash
-    >>> account.owners.append(party)
-    >>> number = Number()
-    >>> number.type = 'cbu'
-    >>> number.number = '2850590940090418135201'
-    >>> account.numbers.append(number)
-    >>> account.save()
-    >>> cbu_number, = account.numbers
-    >>> cbu_number.number_compact
-    '2850590940090418135201'
 
 Create paymode method::
 
     >>> Paymode = Model.get('payment.paymode')
     >>> paymode = Paymode()
     >>> paymode.party = party
-    >>> paymode.type = 'payment.paymode.bccl'
-    >>> paymode.cbu_number = cbu_number.number_compact
-    >>> paymode.bank_account = account
-    >>> paymode.description = desc_bccl
+    >>> paymode.type = 'payment.paymode.mipago'
     >>> paymode.save()
 
 Create account category::
@@ -146,7 +112,7 @@ Create product::
     >>> template.name = 'product'
     >>> template.default_uom = unit
     >>> template.type = 'service'
-    >>> template.list_price = Decimal('40')
+    >>> template.list_price = Decimal('0')
     >>> template.account_category = account_category
     >>> template.save()
     >>> product, = template.products
@@ -177,23 +143,25 @@ Create invoices::
     >>> invoice.total_amount
     Decimal('110.00')
 
-Configure bccl collect::
+Configure mipago collect::
 
     >>> CollectConfig = Model.get('payment_collect.configuration')
     >>> collect_config = CollectConfig(1)
-    >>> collect_config.journal_bccl = journal_cash
-    >>> collect_config.bccl_company_code = '314'
+    >>> collect_config.payment_method_mipago = payment_method
+    >>> collect_config.mipago_company_code = company.party.vat_number
     >>> collect_config.save()
 
-Generate bccl collect::
+Generate mipago collect::
 
+    >>> Invoice = Model.get('account.invoice')
+    >>> with file_open('payment_collect_mipago/tests/transactions.csv', 'rb') as f:
+    ...     return_file = f.read()
     >>> Attachment = Model.get('ir.attachment')
-    >>> payment_collect = Wizard('payment.collect.send')
-    >>> payment_collect.form.csv_format = False
+    >>> payment_collect = Wizard('payment.collect.return')
     >>> payment_collect.form.period = period
-    >>> payment_collect.form.expiration_date = datetime.date(2019, 12, 31)
-    >>> payment_collect.form.paymode_type = 'payment.paymode.bccl'
-    >>> payment_collect.execute('generate_collect')
+    >>> payment_collect.form.paymode_type = 'payment.paymode.mipago'
+    >>> payment_collect.form.return_file = return_file
+    >>> payment_collect.execute('return_collect')
     >>> collect, = payment_collect.actions[0]
     >>> collect.monto_total
     Decimal('330.00')
@@ -201,8 +169,16 @@ Generate bccl collect::
     True
     >>> collect.period == period
     True
-    >>> filename = 'MAIN314_%s.txt' % today.strftime("%d%m")
     >>> attachment = collect.attachments[1]
-    >>> with file_open('payment_collect_bccl/tests/MAIN.txt', 'rb') as f:
+    >>> with file_open('payment_collect_mipago/tests/transactions.txt', 'rb') as f:
     ...     attachment.data == f.read()
     True
+    >>> invoices = Invoice.find()
+    >>> len(invoices)
+    2
+    >>> invoice = invoices[0]
+    >>> invoice.state
+    'paid'
+    >>> invoice = invoices[1]
+    >>> invoice.state
+    'posted'

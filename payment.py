@@ -135,7 +135,7 @@ class PayModeMiPago(ModelStorage, PaymentMixIn):
 
     def return_collect(self, start):
         super(PayModeMiPago, self).return_collect(start, RETORNOS_MIPAGO)
-        self.collect.create_invoices = True
-        self.collect.save()
-        self._add_attach_to_collect(self.collect, self.return_file)
-        return [self.collect]
+        collect = self.attach_collect()
+        collect.create_invoices_button = True
+        collect.save()
+        return [collect]

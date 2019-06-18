@@ -17,6 +17,7 @@ def register():
         configuration.ConfigurationPaymentCollectMiPago,
         paymode.PayMode,
         payment.PayModeMiPago,
+        collect.Collect,
         collect.CollectReturnStart,
         party.Party,
         party.PartyIdentifier,

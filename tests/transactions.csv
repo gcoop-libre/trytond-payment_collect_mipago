@@ -1,0 +1,3 @@
+customer_email,customer_name,customer_identifier,company_name,company_cuit,transaction_id,transaction_title,transaction_state,transaction_creation_date,transaction_first_overdue_amount,transaction_first_overdue,transaction_second_overdue_amount,transaction_second_overdue,payments_amount
+cliente1@gcoop.coop,"Cliente 1",,"Test 1",30708442034,1,"Test 1",Pendiente,2019-06-14,2000.00,2019-02-10,2500.00,2019-02-20,0
+cliente2@gcoop.coop,"Cliente 2",,"Test 1",30708442034,2,"Test 1",Pendiente,2019-06-14,2000.00,2019-02-10,2500.00,2019-02-20,0

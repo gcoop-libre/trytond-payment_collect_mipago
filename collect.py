@@ -21,10 +21,9 @@ class Collect(metaclass=PoolMeta):
     @ModelView.button
     @Workflow.transition('processing')
     def create_invoices(cls, collects):
-        # customer_identifier,customer_email,customer_name,company_name,company_CUIT,transaction_title,transaction_state,transaction_creation_date,transaction_first_overdue_amount,transaction_second_overdue_amount,payment_amounts_sum
-        # 1,cliente1@gcoop.coop,"Cliente 1","Test 1",20353172558,"Test 1",Pendiente,2019-05-30,100.00,,
-        # 2,cliente2@gcoop.coop,"Cliente 2","Test 1",20353172558,"Test 1",Pagada,2019-05-30,100.00,,20.10
-        # se itera por el archivo y genero relaciones con las facturas.
+        # customer_email,customer_name,customer_identifier,company_name,company_cuit,transaction_id,transaction_title,transaction_state,transaction_creation_date,transaction_first_overdue_amount,transaction_first_overdue,transaction_second_overdue_amount,transaction_second_overdue,payments_amount
+        # cliente1@gcoop.coop,"Cliente 1",,"Test 1",30708442034,1,"Test 1",Pendiente,2019-06-14,2000.00,2019-02-10,2500.00,2019-02-20,0
+        # cliente2@gcoop.coop,"Cliente 2",,"Test 1",30708442034,2,"Test 1",Pendiente,2019-06-14,2000.00,2019-02-10,2500.00,2019-02-20,0
 
         pool = Pool()
         Invoice = pool.get('account.invoice')
@@ -74,7 +73,6 @@ class Collect(metaclass=PoolMeta):
 
                     found_invoices = Invoice.search([
                         ('reference', '=', row.get('transaction_id')),
-                        ('state', '!=', 'cancel'),
                         ])
                     if found_invoices:
                         invoice, = found_invoices
@@ -97,6 +95,7 @@ class Collect(metaclass=PoolMeta):
                         invoice_line = InvoiceLine(
                                 invoice_type = 'out',
                                 type = 'line',
+                                description = '',
                                 account=account_revenue,
                                 quantity=1.0,
                                 unit_price=Decimal(row.get(
@@ -120,7 +119,7 @@ class Collect(metaclass=PoolMeta):
                     elif (invoice.state != 'paid' and
                             row.get('transaction_state') != 'Pagada'):
                             collect_tr = CollectTransaction(
-                                collect_result='P', # paid pending
+                                collect_result='R', # paid pending
                                 collect_message=row.get('transaction_state'),
                                 collect=collect,
                                 pay_date=today,
@@ -128,11 +127,14 @@ class Collect(metaclass=PoolMeta):
                                     'transaction_first_overdue_amount')),
                                 payment_method=payment_method,
                                 )
-                    if collect_tr:
-                        invoice.collect_transactions = [collect_tr]
+                    if collect_tr and found_invoices:
+                        invoice.collect_transactions += (collect_tr,)
+                    elif collect_tr:
+                        invoice.collect_transactions = collect_tr,
                     invoices.append(invoice)
-                Invoice.save(invoices)
-                Invoice.validate_invoice(invoices)
+                Invoice.save([i for i in invoices if i.state in ['draft',
+                            'validated']])
+                Invoice.save([i for i in invoices if i.state == 'draft'])
         super(Collect, cls).create_invoices(collects)
 
 

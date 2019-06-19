@@ -21,34 +21,37 @@ class Collect(metaclass=PoolMeta):
     @ModelView.button
     @Workflow.transition('processing')
     def create_invoices(cls, collects):
-        # customer_email,customer_name,customer_identifier,company_name,company_cuit,transaction_id,transaction_title,transaction_state,transaction_creation_date,transaction_first_overdue_amount,transaction_first_overdue,transaction_second_overdue_amount,transaction_second_overdue,payments_amount
-        # cliente1@gcoop.coop,"Cliente 1",,"Test 1",30708442034,1,"Test 1",Pendiente,2019-06-14,2000.00,2019-02-10,2500.00,2019-02-20,0
-        # cliente2@gcoop.coop,"Cliente 2",,"Test 1",30708442034,2,"Test 1",Pendiente,2019-06-14,2000.00,2019-02-10,2500.00,2019-02-20,0
-
         pool = Pool()
+        Account = pool.get('account.account')
+        Address = pool.get('party.address')
+        CollectTransaction = pool.get('payment.collect.transaction')
+        Company = pool.get('company.company')
+        Configuration = pool.get('payment_collect.configuration')
+        Country = pool.get('country.country')
         Invoice = pool.get('account.invoice')
         InvoiceLine = pool.get('account.invoice.line')
         Party = pool.get('party.party')
-        Address = pool.get('party.address')
-        Country = pool.get('country.country')
         PartyIdentifier = pool.get('party.identifier')
-        Account = pool.get('account.account')
-        CollectTransaction = pool.get('payment.collect.transaction')
-        Configuration = Pool().get('payment_collect.configuration')
-        Date = Pool().get('ir.date')
+        Tax = pool.get('account.tax')
+        Date = pool.get('ir.date')
         config = Configuration(1)
         payment_method = config.payment_method
         if config.payment_method_mipago:
             payment_method = config.payment_method_mipago
         parties = []
-        invoices = []
+        all_invoices = []
         account_revenue, = Account.search([
             ('kind', '=', 'revenue'),
             ('code', '=', '511'),
             ])
         ar, = Country.search([('code', '=', 'AR')])
+        tax_iva_21, = Tax.search([
+                ('name', '=', 'IVA Ventas 21%'),
+                ])
         today = Date.today()
-        company = Transaction().context.get('company')
+        if Transaction().context.get('company'):
+            company = Company(Transaction().context['company'])
+            currency = company.currency
         for collect in collects:
             if collect.create_invoices_button:
                 # create parties
@@ -84,7 +87,7 @@ class Collect(metaclass=PoolMeta):
                         invoice.on_change_type()
                         invoice.on_change_party()
                         invoice.company = company
-                        #invoice.currency = company.currency
+                        invoice.currency = company.currency
                         invoice.state = 'draft'
                         invoice.pos = collect.pos
                         invoice.on_change_pos()
@@ -92,19 +95,29 @@ class Collect(metaclass=PoolMeta):
                         invoice.set_pyafipws_concept()
                         invoice.set_pyafipws_billing_dates()
                         invoice.reference = row.get('transaction_id')
+                        invoice.taxes = ()
+                        total_amount = currency.round(Decimal(row.get(
+                                'transaction_first_overdue_amount')))
+                        untaxed_unit_price = total_amount / Decimal('1.21')
                         invoice_line = InvoiceLine(
-                                invoice_type = 'out',
-                                type = 'line',
-                                description = '',
-                                account=account_revenue,
-                                quantity=1.0,
-                                unit_price=Decimal(row.get(
-                                        'transaction_first_overdue_amount')),
-                                )
+                            invoice_type='out',
+                            type='line',
+                            description='',
+                            account=account_revenue,
+                            quantity=1.0,
+                            unit_price=currency.round(untaxed_unit_price),
+                            taxes=(tax_iva_21,),
+                            )
+                        taxes = [tax_iva_21]
+                        pattern = invoice_line._get_tax_rule_pattern()
+                        party = invoice.party
+                        if party.customer_tax_rule:
+                            tax_ids = party.customer_tax_rule.apply(None, pattern)
+                            if tax_ids:
+                                taxes.extend(tax_ids)
+                        invoice_line.taxes = taxes
                         invoice.lines = [invoice_line]
 
-                        # FIXME: add taxes
-                        # invoice.lines.taxes.append(Tax(name='IVA 21%'))
                     if (invoice.state != 'paid' and
                             row.get('transaction_state') == 'Pagada'):
                             collect_tr = CollectTransaction(
@@ -112,8 +125,7 @@ class Collect(metaclass=PoolMeta):
                                 collect_message=row.get('transaction_state'),
                                 collect=collect,
                                 pay_date=today,
-                                pay_amount=Decimal(row.get(
-                                    'transaction_first_overdue_amount')),
+                                pay_amount=invoice.total_amount,
                                 payment_method=payment_method,
                                 )
                     elif (invoice.state != 'paid' and
@@ -123,18 +135,19 @@ class Collect(metaclass=PoolMeta):
                                 collect_message=row.get('transaction_state'),
                                 collect=collect,
                                 pay_date=today,
-                                pay_amount=Decimal(row.get(
-                                    'transaction_first_overdue_amount')),
+                                pay_amount=invoice.total_amount,
                                 payment_method=payment_method,
                                 )
                     if collect_tr and found_invoices:
                         invoice.collect_transactions += (collect_tr,)
                     elif collect_tr:
                         invoice.collect_transactions = collect_tr,
-                    invoices.append(invoice)
-                Invoice.save([i for i in invoices if i.state in ['draft',
-                            'validated']])
-                Invoice.save([i for i in invoices if i.state == 'draft'])
+                    all_invoices.append(invoice)
+                save_invoices = [i for i in all_invoices if i.state in ['draft', 'validated']]
+                Invoice.save(save_invoices)
+                update_invoices = (i for i in save_invoices if i.state == 'draft')
+                Invoice.update_taxes(update_invoices)
+                Invoice.validate_invoice(all_invoices)
         super(Collect, cls).create_invoices(collects)
 
 

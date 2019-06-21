@@ -4,7 +4,7 @@
 import io
 import csv
 import logging
-from decimal import Decimal
+from decimal import Decimal, ROUND_FLOOR
 
 from trytond.pool import PoolMeta, Pool
 from trytond.model import Workflow, ModelView
@@ -18,9 +18,7 @@ class Collect(metaclass=PoolMeta):
     __name__ = 'payment.collect'
 
     @classmethod
-    @ModelView.button
-    @Workflow.transition('processing')
-    def create_invoices(cls, collects):
+    def _create_invoices(cls, collects):
         pool = Pool()
         Account = pool.get('account.account')
         Address = pool.get('party.address')
@@ -40,6 +38,8 @@ class Collect(metaclass=PoolMeta):
             payment_method = config.payment_method_mipago
         parties = []
         all_invoices = []
+        to_create = []
+        to_update = []
         account_revenue, = Account.search([
             ('kind', '=', 'revenue'),
             ('code', '=', '511'),
@@ -53,7 +53,8 @@ class Collect(metaclass=PoolMeta):
             company = Company(Transaction().context['company'])
             currency = company.currency
         for collect in collects:
-            if collect.create_invoices_button:
+            if (collect.create_invoices_button and
+                    collect.paymode_type == 'payment.paymode.mipago'):
                 # create parties
                 data = io.StringIO(collect.attachments[0].data.decode('utf8'))
                 reader = csv.DictReader(data, delimiter=',')
@@ -79,6 +80,10 @@ class Collect(metaclass=PoolMeta):
                         ])
                     if found_invoices:
                         invoice, = found_invoices
+                        if invoice.state in ['posted', 'paid', 'canceled']:
+                            continue
+                        to_update.append(invoice)
+                        total_amount = invoice.total_amount
                     else:
                         # create invoice
                         invoice = Invoice()
@@ -97,7 +102,8 @@ class Collect(metaclass=PoolMeta):
                         invoice.reference = row.get('transaction_id')
                         invoice.taxes = ()
                         total_amount = currency.round(Decimal(row.get(
-                                'transaction_first_overdue_amount')))
+                                    'transaction_first_overdue_amount')),
+                            rounding=ROUND_FLOOR)
                         untaxed_unit_price = total_amount / Decimal('1.21')
                         invoice_line = InvoiceLine(
                             invoice_type='out',
@@ -105,7 +111,8 @@ class Collect(metaclass=PoolMeta):
                             description='',
                             account=account_revenue,
                             quantity=1.0,
-                            unit_price=currency.round(untaxed_unit_price),
+                            unit_price=currency.round(untaxed_unit_price,
+                                rounding=ROUND_FLOOR),
                             taxes=(tax_iva_21,),
                             )
                         taxes = [tax_iva_21]
@@ -117,6 +124,7 @@ class Collect(metaclass=PoolMeta):
                                 taxes.extend(tax_ids)
                         invoice_line.taxes = taxes
                         invoice.lines = [invoice_line]
+                        to_create.append(invoice)
 
                     if (invoice.state != 'paid' and
                             row.get('transaction_state') == 'Pagada'):
@@ -125,7 +133,7 @@ class Collect(metaclass=PoolMeta):
                                 collect_message=row.get('transaction_state'),
                                 collect=collect,
                                 pay_date=today,
-                                pay_amount=invoice.total_amount,
+                                pay_amount=total_amount,
                                 payment_method=payment_method,
                                 )
                     elif (invoice.state != 'paid' and
@@ -135,7 +143,7 @@ class Collect(metaclass=PoolMeta):
                                 collect_message=row.get('transaction_state'),
                                 collect=collect,
                                 pay_date=today,
-                                pay_amount=invoice.total_amount,
+                                pay_amount=total_amount,
                                 payment_method=payment_method,
                                 )
                     if collect_tr and found_invoices:
@@ -143,12 +151,9 @@ class Collect(metaclass=PoolMeta):
                     elif collect_tr:
                         invoice.collect_transactions = collect_tr,
                     all_invoices.append(invoice)
-                save_invoices = [i for i in all_invoices if i.state in ['draft', 'validated']]
-                Invoice.save(save_invoices)
-                update_invoices = (i for i in save_invoices if i.state == 'draft')
-                Invoice.update_taxes(update_invoices)
+                Invoice.save(all_invoices)
+                Invoice.update_taxes(to_create)
                 Invoice.validate_invoice(all_invoices)
-        super(Collect, cls).create_invoices(collects)
 
 
 class CollectReturnStart(metaclass=PoolMeta):

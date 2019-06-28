@@ -96,8 +96,6 @@ class Collect(metaclass=PoolMeta):
                         invoice.state = 'draft'
                         invoice.pos = collect.pos
                         invoice.on_change_pos()
-                        invoice.set_pyafipws_concept()
-                        invoice.set_pyafipws_billing_dates()
                         invoice.invoice_type = collect.invoice_type
                         invoice.reference = row.get('transaction_id')
                         invoice.taxes = ()
@@ -124,6 +122,8 @@ class Collect(metaclass=PoolMeta):
                                 taxes.extend(tax_ids)
                         invoice_line.taxes = taxes
                         invoice.lines = [invoice_line]
+                        invoice.pyafipws_concept = '2'
+                        invoice.set_pyafipws_billing_dates()
                         to_create.append(invoice)
 
                     if (invoice.state != 'paid' and

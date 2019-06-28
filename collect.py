@@ -96,9 +96,9 @@ class Collect(metaclass=PoolMeta):
                         invoice.state = 'draft'
                         invoice.pos = collect.pos
                         invoice.on_change_pos()
-                        invoice.invoice_type = invoice.on_change_with_invoice_type()
                         invoice.set_pyafipws_concept()
                         invoice.set_pyafipws_billing_dates()
+                        invoice.invoice_type = collect.invoice_type
                         invoice.reference = row.get('transaction_id')
                         invoice.taxes = ()
                         total_amount = currency.round(Decimal(row.get(

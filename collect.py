@@ -157,7 +157,6 @@ class Collect(metaclass=PoolMeta):
                         invoice.collect_transactions = collect_tr,
                     all_invoices.append(invoice)
                 Invoice.save(all_invoices)
-                Invoice.update_taxes(to_create)
                 Invoice.validate_invoice(all_invoices)
 
 

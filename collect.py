@@ -9,6 +9,7 @@ from decimal import Decimal, ROUND_HALF_EVEN
 from trytond.pool import PoolMeta, Pool
 from trytond.model import Workflow, ModelView
 from trytond.transaction import Transaction
+from trytond.bus import notify
 
 __all__ = ['Collect', 'CollectReturnStart']
 logger = logging.getLogger(__name__)
@@ -59,6 +60,7 @@ class Collect(metaclass=PoolMeta):
         if Transaction().context.get('company'):
             company = Company(Transaction().context['company'])
             currency = company.currency
+        notify('Creando comprobantes')
         for collect in collects:
             if (collect.create_invoices_button and
                     collect.paymode_type == 'payment.paymode.mipago'):
@@ -158,6 +160,7 @@ class Collect(metaclass=PoolMeta):
                     all_invoices.append(invoice)
                 Invoice.save(all_invoices)
                 Invoice.validate_invoice(all_invoices)
+                notify('Se crearon %s comprobantes' % len(all_invoices))
 
 
 class CollectReturnStart(metaclass=PoolMeta):

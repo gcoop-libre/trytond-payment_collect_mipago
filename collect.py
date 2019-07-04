@@ -4,7 +4,7 @@
 import io
 import csv
 import logging
-from decimal import Decimal, ROUND_FLOOR
+from decimal import Decimal
 
 from trytond.pool import PoolMeta, Pool
 from trytond.model import Workflow, ModelView
@@ -99,9 +99,8 @@ class Collect(metaclass=PoolMeta):
                         invoice.invoice_type = collect.invoice_type
                         invoice.reference = row.get('transaction_id')
                         invoice.taxes = ()
-                        total_amount = currency.round(Decimal(row.get(
-                                    'transaction_first_overdue_amount')),
-                            rounding=ROUND_FLOOR)
+                        total_amount = Decimal(
+                            row.get('transaction_first_overdue_amount'))
                         untaxed_unit_price = total_amount / Decimal('1.21')
                         invoice_line = InvoiceLine(
                             invoice_type='out',
@@ -109,8 +108,7 @@ class Collect(metaclass=PoolMeta):
                             description='DONACION',
                             account=account_revenue,
                             quantity=1.0,
-                            unit_price=currency.round(untaxed_unit_price,
-                                rounding=ROUND_FLOOR),
+                            unit_price=currency.round(untaxed_unit_price),
                             taxes=(tax_iva_21,),
                             )
                         taxes = [tax_iva_21]

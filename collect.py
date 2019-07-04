@@ -4,7 +4,7 @@
 import io
 import csv
 import logging
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_EVEN
 
 from trytond.pool import PoolMeta, Pool
 from trytond.model import Workflow, ModelView
@@ -19,6 +19,13 @@ class Collect(metaclass=PoolMeta):
 
     @classmethod
     def _create_invoices(cls, collects):
+
+        def round(amount, rounding=ROUND_HALF_EVEN):
+            'Round the amount depending of the price_digits'
+            digits = Decimal('0.0001')
+            return (amount / digits).quantize(Decimal('1.'),
+                    rounding=rounding) * digits
+
         pool = Pool()
         Account = pool.get('account.account')
         Address = pool.get('party.address')
@@ -108,7 +115,7 @@ class Collect(metaclass=PoolMeta):
                             description='DONACION',
                             account=account_revenue,
                             quantity=1.0,
-                            unit_price=currency.round(untaxed_unit_price),
+                            unit_price=round(untaxed_unit_price),
                             taxes=(tax_iva_21,),
                             )
                         taxes = [tax_iva_21]

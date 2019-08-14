@@ -111,7 +111,7 @@ class Collect(metaclass=PoolMeta):
                         invoice.reference = row.get('transaction_id')
                         invoice.taxes = ()
                         total_amount = Decimal(
-                            row.get('transaction_first_overdue_amount'))
+                            row.get('transaction_amount'))
                         untaxed_unit_price = total_amount / Decimal('1.21')
                         invoice_line = InvoiceLine(
                             invoice_type='out',

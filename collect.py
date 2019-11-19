@@ -54,7 +54,9 @@ class Collect(metaclass=PoolMeta):
             ])
         ar, = Country.search([('code', '=', 'AR')])
         tax_iva_21, = Tax.search([
-                ('name', '=', 'IVA Ventas 21%'),
+                ('iva_code', '=', '5'),
+                ('group.afip_kind', '=', 'gravado'),
+                ('kind', '=', 'sale'),
                 ])
         today = Date.today()
         if Transaction().context.get('company'):

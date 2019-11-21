@@ -28,12 +28,13 @@ class Collect(metaclass=PoolMeta):
                     rounding=rounding) * digits
 
         pool = Pool()
+        AccountConfig = pool.get('account.configuration')
         Account = pool.get('account.account')
         Address = pool.get('party.address')
+        ContactMechanism = pool.get('party.contact_mechanism')
         CollectTransaction = pool.get('payment.collect.transaction')
         Company = pool.get('company.company')
         Configuration = pool.get('payment_collect.configuration')
-        Country = pool.get('country.country')
         Invoice = pool.get('account.invoice')
         InvoiceLine = pool.get('account.invoice.line')
         Party = pool.get('party.party')
@@ -48,15 +49,12 @@ class Collect(metaclass=PoolMeta):
         all_invoices = []
         to_create = []
         to_update = []
-        account_revenue, = Account.search([
-            ('kind', '=', 'revenue'),
-            ('code', '=', '511'),
-            ])
-        ar, = Country.search([('code', '=', 'AR')])
+        account_config = AccountConfig(1)
+        account_revenue = account_config.default_category_account_revenue
         tax_iva_21, = Tax.search([
-                ('iva_code', '=', '5'),
                 ('group.afip_kind', '=', 'gravado'),
-                ('kind', '=', 'sale'),
+                ('iva_code', '=', '5'),
+                ('group.kind', 'in', ('sale', 'both')),
                 ])
         today = Date.today()
         if Transaction().context.get('company'):
@@ -79,11 +77,20 @@ class Collect(metaclass=PoolMeta):
                     except ValueError:
                         logger.info('customer_email %s do not exists' %
                             row.get('customer_email'))
-                        party = Party(name=row.get('customer_name'),
+                        party = Party(
+                            name=row.get('customer_name'),
                             iva_condition='consumidor_final',
-                            identifiers=[PartyIdentifier(type='mipago',
-                                    code=row.get('customer_email'))],
-                            addresses=[Address(country=ar)])
+                            identifiers=[
+                                PartyIdentifier(type='mipago',
+                                    code=row.get('customer_email'))
+                                ],
+                            contact_mechanisms=[
+                                ContactMechanism(type='email', value=row.get('customer_email'),
+                                    invoice=True),
+                                ],
+                            addresses=[
+                                Address(invoice=True),
+                                ])
                         party.save()
 
                     found_invoices = Invoice.search([

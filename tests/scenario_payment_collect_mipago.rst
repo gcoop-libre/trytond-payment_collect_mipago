@@ -11,11 +11,21 @@ Imports::
     >>> from trytond.tools import file_open
     >>> from trytond.modules.company.tests.tools import create_company, \
     ...     get_company
+    >>> from trytond.modules.currency.tests.tools import get_currency
     >>> from trytond.modules.account.tests.tools import create_fiscalyear, \
     ...     create_chart, get_accounts, create_tax, create_tax_code
     >>> from trytond.modules.account_invoice.tests.tools import \
     ...     set_fiscalyear_invoice_sequences
-    >>> today = datetime.date.today()
+    >>> from trytond.modules.account_invoice_ar.tests.tools import \
+    ...     create_pos, get_invoice_types, get_pos, create_tax_groups, \
+    ...     set_afip_certs
+    >>> from trytond.modules.account_invoice_ar.afip_auth import \
+    ...     authenticate, get_cache_dir
+    >>> from pyafipws.wsfev1 import WSFEv1
+    >>> import pytz
+    >>> timezone = pytz.timezone('America/Argentina/Buenos_Aires')
+    >>> today = datetime.datetime.now(timezone).date()
+    >>> year = datetime.date(2019, 1, 1)
 
 Install account_invoice::
 
@@ -23,13 +33,25 @@ Install account_invoice::
 
 Create company::
 
-    >>> _ = create_company()
+    >>> currency = get_currency('ARS')
+    >>> currency.afip_code = 'PES'
+    >>> currency.save()
+    >>> _ = create_company(currency=currency)
     >>> company = get_company()
     >>> tax_identifier = company.party.identifiers.new()
     >>> tax_identifier.type = 'ar_cuit'
-    >>> tax_identifier.code = '11111111113'
+    >>> tax_identifier.code = '30710158254' # gcoop CUIT
     >>> company.party.iva_condition = 'responsable_inscripto'
     >>> company.party.save()
+
+Configure company timezone::
+
+    >>> company.timezone = 'America/Argentina/Buenos_Aires'
+    >>> company.save()
+
+Configure AFIP certificates::
+
+    >>> _ = set_afip_certs(company=company)
 
 Create fiscal year::
 
@@ -49,10 +71,22 @@ Create chart of accounts::
     >>> account_tax = accounts['tax']
     >>> account_cash = accounts['cash']
 
+Create point of sale::
+
+    >>> _ = create_pos(company, type='electronic', number=4000, ws='wsfe')
+    >>> pos = get_pos(type='electronic', number=4000)
+    >>> invoice_types = get_invoice_types(pos=pos)
+
+Create tax groups::
+
+    >>> tax_groups = create_tax_groups()
+
 Create tax::
 
     >>> TaxCode = Model.get('account.tax.code')
     >>> tax = create_tax(Decimal('.21'))
+    >>> tax.group = tax_groups['gravado']
+    >>> tax.iva_code = '5'
     >>> tax.save()
     >>> invoice_base_code = create_tax_code(tax, 'base', 'invoice')
     >>> invoice_base_code.save()
@@ -93,55 +127,39 @@ Create paymode method::
     >>> paymode.type = 'payment.paymode.mipago'
     >>> paymode.save()
 
-Create account category::
+SetUp webservice AFIP::
 
-    >>> ProductCategory = Model.get('product.category')
-    >>> account_category = ProductCategory(name="Account Category")
-    >>> account_category.accounting = True
-    >>> account_category.account_expense = expense
-    >>> account_category.account_revenue = revenue
-    >>> account_category.customer_taxes.append(tax)
-    >>> account_category.save()
+    >>> URL_WSAA = "https://wsaahomo.afip.gov.ar/ws/services/LoginCms?wsdl"
+    >>> URL_WSFEv1 = "https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL"
+    >>> certificate = str(company.pyafipws_certificate)
+    >>> private_key = str(company.pyafipws_private_key)
+    >>> cache = get_cache_dir()
+    >>> auth_data = authenticate('wsfe', certificate, private_key,
+    ...     cache=cache, wsdl=URL_WSAA)
+    >>> wsfev1 = WSFEv1()
+    >>> wsfev1.Cuit = company.party.vat_number
+    >>> wsfev1.Token = auth_data['token']
+    >>> wsfev1.Sign = auth_data['sign']
+    >>> wsfev1.Conectar(wsdl=URL_WSFEv1, cache=cache)
+    True
 
-Create product::
+Get CompUltimoAutorizado and configure sequences::
 
-    >>> ProductUom = Model.get('product.uom')
-    >>> unit, = ProductUom.find([('name', '=', 'Unit')])
-    >>> ProductTemplate = Model.get('product.template')
-    >>> template = ProductTemplate()
-    >>> template.name = 'product'
-    >>> template.default_uom = unit
-    >>> template.type = 'service'
-    >>> template.list_price = Decimal('0')
-    >>> template.account_category = account_category
-    >>> template.save()
-    >>> product, = template.products
+    >>> #cbte_nro = int(wsfev1.CompUltimoAutorizado('1', pos.number))
+    >>> #invoice_types['1'].invoice_sequence.number_next = cbte_nro + 1
+    >>> #invoice_types['1'].invoice_sequence.save()
 
-Create invoices::
+    >>> #cbte_nro = int(wsfev1.CompUltimoAutorizado('3', pos.number))
+    >>> #invoice_types['3'].invoice_sequence.number_next = cbte_nro + 1
+    >>> #invoice_types['3'].invoice_sequence.save()
 
-    >>> Invoice = Model.get('account.invoice')
-    >>> invoice = Invoice()
-    >>> invoice.party = party
-    >>> invoice.invoice_date = period.start_date
-    >>> invoice.paymode = paymode
-    >>> line = invoice.lines.new()
-    >>> line.product = product
-    >>> line.quantity = 5
-    >>> line.unit_price = Decimal('40')
-    >>> invoice.click('post')
-    >>> invoice.total_amount
-    Decimal('220.00')
-    >>> invoice = Invoice()
-    >>> invoice.party = party 
-    >>> invoice.invoice_date = period.start_date
-    >>> invoice.paymode = paymode
-    >>> line = invoice.lines.new()
-    >>> line.product = product
-    >>> line.quantity = 5
-    >>> line.unit_price = Decimal('20')
-    >>> invoice.click('post')
-    >>> invoice.total_amount
-    Decimal('110.00')
+    >>> cbte_nro = int(wsfev1.CompUltimoAutorizado('6', pos.number))
+    >>> invoice_types['6'].invoice_sequence.number_next = cbte_nro + 1
+    >>> invoice_types['6'].invoice_sequence.save()
+
+    >>> #cbte_nro = int(wsfev1.CompUltimoAutorizado('11', pos.number))
+    >>> #invoice_types['11'].invoice_sequence.number_next = cbte_nro + 1
+    >>> #invoice_types['11'].invoice_sequence.save()
 
 Configure mipago collect::
 
@@ -149,7 +167,16 @@ Configure mipago collect::
     >>> collect_config = CollectConfig(1)
     >>> collect_config.payment_method_mipago = payment_method
     >>> collect_config.mipago_company_code = company.party.vat_number
+    >>> collect_config.pos = pos
     >>> collect_config.save()
+
+Configure account configuration::
+
+    >>> AccountConfig = Model.get('account.configuration')
+    >>> account_config = AccountConfig(1)
+    >>> account_config.default_category_account_revenue = revenue
+    >>> account_config.default_category_account_expense = expense
+    >>> account_config.save()
 
 Generate mipago collect::
 
@@ -161,24 +188,37 @@ Generate mipago collect::
     >>> payment_collect.form.period = period
     >>> payment_collect.form.paymode_type = 'payment.paymode.mipago'
     >>> payment_collect.form.return_file = return_file
+    >>> payment_collect.form.create_invoices = True
     >>> payment_collect.execute('return_collect')
     >>> collect, = payment_collect.actions[0]
-    >>> collect.monto_total
-    Decimal('330.00')
-    >>> collect.cantidad_registros == 2
-    True
-    >>> collect.period == period
-    True
-    >>> attachment = collect.attachments[1]
-    >>> with file_open('payment_collect_mipago/tests/transactions.txt', 'rb') as f:
+    >>> collect.pos.number
+    4000
+    >>> collect.invoice_type = invoice_types['6']
+    >>> collect.state
+    'processing'
+    >>> # collect.monto_total
+    # Decimal('330.00')
+    >>> # collect.cantidad_registros == 2
+    # True
+    >>> # collect.period == period
+    # True
+    >>> attachment = collect.attachments[0]
+    >>> with file_open('payment_collect_mipago/tests/transactions.csv', 'rb') as f:
     ...     attachment.data == f.read()
     True
+    >>> collect.click('create_invoices')
+    >>> collect.reload()
     >>> invoices = Invoice.find()
     >>> len(invoices)
     2
     >>> invoice = invoices[0]
     >>> invoice.state
-    'paid'
-    >>> invoice = invoices[1]
+    'validated'
+    >>> collect.click('post_invoices')
+    >>> invoice.reload()
     >>> invoice.state
     'posted'
+    >>> collect.click('pay_invoices')
+    >>> invoice.reload()
+    >>> invoice.state
+    'paid'

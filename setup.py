@@ -44,14 +44,32 @@ requires = []
 for dep in info.get('depends', []):
     if dep == 'payment_collect':
         requires.append(get_require_version('trytonar_%s' % dep))
+    elif dep == 'payment_collect_afip':
+        requires.append(get_require_version('trytonar_%s' % dep))
+    elif dep == 'account_ar':
+        requires.append(get_require_version('trytonar_%s' % dep))
+    elif dep == 'account_invoice_ar':
+        requires.append(get_require_version('trytonar_%s' % dep))
     elif not re.match(r'(ir|res)(\W|$)', dep):
         requires.append(get_require_version('trytond_%s' % dep))
 requires.append(get_require_version('trytond'))
 
-tests_require = [get_require_version('proteus')]
+tests_require = [get_require_version('proteus'), 'pytz']
 dependency_links = [
+    'https://github.com/tryton-ar/bank_ar/tarball/%s.%s#egg=trytonar_bank_ar-%s.%s' \
+        % (major_version, minor_version, major_version, minor_version),
+    'https://github.com/tryton-ar/party_ar/tarball/%s.%s#egg=trytonar_party_ar-%s.%s' \
+        % (major_version, minor_version, major_version, minor_version),
     'https://github.com/tryton-ar/payment_collect/tarball/%s.%s#egg=trytonar_payment_collect-%s.%s' \
         % (major_version, minor_version, major_version, minor_version),
+    'https://github.com/tryton-ar/payment_collect_afip/tarball/%s.%s#egg=trytonar_payment_collect_afip-%s.%s' \
+        % (major_version, minor_version, major_version, minor_version),
+    'https://github.com/tryton-ar/account_ar/tarball/%s.%s#egg=trytonar_account_ar-%s.%s' \
+        % (major_version, minor_version, major_version, minor_version),
+    'https://github.com/tryton-ar/account_invoice_ar/tarball/%s.%s#egg=trytonar_account_invoice_ar-%s.%s' \
+        % (major_version, minor_version, major_version, minor_version),
+    'https://github.com/reingart/pyafipws/tarball/py3k#egg=pyafipws',
+    'https://github.com/pysimplesoap/pysimplesoap/tarball/stable_py3k#egg=pysimplesoap',
     ]
 if minor_version % 2:
     dependency_links.append('https://trydevpi.tryton.org/')

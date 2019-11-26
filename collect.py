@@ -27,6 +27,7 @@ class Collect(metaclass=PoolMeta):
             return (amount / digits).quantize(Decimal('1.'),
                     rounding=rounding) * digits
 
+        super(Collect, cls)._create_invoices(collects)
         pool = Pool()
         AccountConfig = pool.get('account.configuration')
         Account = pool.get('account.account')

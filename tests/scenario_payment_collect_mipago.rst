@@ -59,7 +59,6 @@ Create fiscal year::
     ...     create_fiscalyear(company))
     >>> fiscalyear.click('create_period')
     >>> period = fiscalyear.periods[0]
-    >>> period_ids = [p.id for p in fiscalyear.periods]
 
 Create chart of accounts::
 
@@ -185,7 +184,6 @@ Generate mipago collect::
     ...     return_file = f.read()
     >>> Attachment = Model.get('ir.attachment')
     >>> payment_collect = Wizard('payment.collect.return')
-    >>> payment_collect.form.period = period
     >>> payment_collect.form.paymode_type = 'payment.paymode.mipago'
     >>> payment_collect.form.return_file = return_file
     >>> payment_collect.form.create_invoices = True
@@ -199,8 +197,6 @@ Generate mipago collect::
     >>> # collect.monto_total
     # Decimal('330.00')
     >>> # collect.cantidad_registros == 2
-    # True
-    >>> # collect.period == period
     # True
     >>> attachment = collect.attachments[0]
     >>> with file_open('payment_collect_mipago/tests/transactions.csv', 'rb') as f:

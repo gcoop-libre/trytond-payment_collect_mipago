@@ -190,3 +190,9 @@ class CollectReturnStart(metaclass=PoolMeta):
         models = super(CollectReturnStart, cls)._get_origin()
         models.append('payment.paymode.mipago')
         return models
+
+    @classmethod
+    def _paymode_types(cls):
+        types = super(CollectReturnStart, cls)._paymode_types()
+        types.append('payment.paymode.mipago')
+        return types

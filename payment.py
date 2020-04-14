@@ -32,12 +32,10 @@ class PayModeMiPago(ModelStorage, PaymentMixIn):
         Invoice = pool.get('account.invoice')
         Date = pool.get('ir.date')
         collect = self.attach_collect()
-        collect.create_invoices_button = False
+        collect.create_invoices_button = start.create_invoices
         collect.save()
-        if start.create_invoices:
-            collect.create_invoices_button = True
-            collect.save()
-            return [collect]
+        return [collect]
+
         config = Configuration(1)
         payment_method = config.payment_method
         if config.payment_method_mipago:

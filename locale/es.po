@@ -1,3 +1,35 @@
 #
 msgid ""
 msgstr "Content-Type: text/plain; charset=utf-8\n"
+
+msgctxt "field:payment_collect.configuration,mipago_company_code:"
+msgid "Company code MiPago"
+msgstr "Número de comercio MiPago"
+
+msgctxt "field:payment_collect.configuration,payment_method_mipago:"
+msgid "Payment Method MiPago"
+msgstr "Método de pago MiPago"
+
+msgctxt "field:payment_collect.configuration.mipago,company:"
+msgid "Company"
+msgstr "Empresa"
+
+msgctxt "field:payment_collect.configuration.mipago,mipago_company_code:"
+msgid "Company code MiPago"
+msgstr "Número de comercio MiPago"
+
+msgctxt "field:payment_collect.configuration.mipago,payment_method_mipago:"
+msgid "Payment Method MiPago"
+msgstr "Método de pago MiPago"
+
+msgctxt "model:ir.message,text:msg_unique_mipago"
+msgid "There is another party with the same code \"%(code)s\"."
+msgstr "Ya existe otro cliente con el mismo código \"%(code)s\"."
+
+msgctxt "model:payment.paymode.mipago,name:"
+msgid "Pay Mode MiPago"
+msgstr "Modo de pago MiPago"
+
+msgctxt "model:payment_collect.configuration.mipago,name:"
+msgid "Payment Collect MiPago Configuration"
+msgstr "Configuración de Cobranzas MiPago"

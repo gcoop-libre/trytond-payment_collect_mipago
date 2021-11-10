@@ -27,7 +27,8 @@ class Collect(metaclass=PoolMeta):
             return (amount / digits).quantize(Decimal('1.'),
                     rounding=rounding) * digits
 
-        super(Collect, cls)._create_invoices(collects)
+        super()._create_invoices(collects)
+
         pool = Pool()
         AccountConfig = pool.get('account.configuration')
         Account = pool.get('account.account')
@@ -180,19 +181,19 @@ class CollectReturnStart(metaclass=PoolMeta):
     def origin_name(self):
         pool = Pool()
         PayModeMiPago = pool.get('payment.paymode.mipago')
-        name = super(PayModeMiPago, self).origin_name
+        name = super().origin_name
         if isinstance(self.origin, PayModeMiPago):
             name = self.origin.paymode.rec_name
         return name
 
     @classmethod
     def _get_origin(cls):
-        models = super(CollectReturnStart, cls)._get_origin()
+        models = super()._get_origin()
         models.append('payment.paymode.mipago')
         return models
 
     @classmethod
     def _paymode_types(cls):
-        types = super(CollectReturnStart, cls)._paymode_types()
+        types = super()._paymode_types()
         types.append('payment.paymode.mipago')
         return types

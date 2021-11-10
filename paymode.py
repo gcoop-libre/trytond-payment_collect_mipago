@@ -14,13 +14,13 @@ class PayMode(metaclass=PoolMeta):
     def origin_name(self):
         pool = Pool()
         PayModeMiPago = pool.get('payment.paymode.mipago')
-        name = super(PayModeMiPago, self).origin_name
+        name = super().origin_name
         if isinstance(self.origin, PayModeMiPago):
             name = self.origin.paymode.rec_name
         return name
 
     @classmethod
     def _get_origin(cls):
-        models = super(PayMode, cls)._get_origin()
+        models = super()._get_origin()
         models.append('payment.paymode.mipago')
         return models

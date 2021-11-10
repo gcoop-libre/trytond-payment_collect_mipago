@@ -24,7 +24,7 @@ class PayModeMiPago(ModelStorage, PaymentMixIn):
     _SEPARATOR = ','
 
     def return_collect(self, start):
-        super(PayModeMiPago, self).return_collect(start, RETORNOS_MIPAGO)
+        super().return_collect(start, RETORNOS_MIPAGO)
         pool = Pool()
         CollectTransaction = pool.get('payment.collect.transaction')
         Company = pool.get('company.company')

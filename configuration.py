@@ -18,11 +18,9 @@ class Configuration(metaclass=PoolMeta):
     @classmethod
     def multivalue_model(cls, field):
         pool = Pool()
-        if field == 'mipago_company_code':
+        if field in ['payment_method_mipago', 'mipago_company_code']:
             return pool.get('payment_collect.configuration.mipago')
-        elif field == 'payment_method_mipago':
-            return pool.get('payment_collect.configuration.mipago')
-        return super(Configuration, cls).multivalue_model(field)
+        return super().multivalue_model(field)
 
 
 class ConfigurationPaymentCollectMiPago(ModelSQL, CompanyValueMixin):

@@ -15,7 +15,7 @@ class Party(metaclass=PoolMeta):
         if default is None:
             default = {}
         default['identifiers'] = None
-        return super(Party, cls).copy(parties, default=default)
+        return super().copy(parties, default=default)
 
 
 class PartyIdentifier(metaclass=PoolMeta):
@@ -44,7 +44,7 @@ class PartyIdentifier(metaclass=PoolMeta):
 
     @fields.depends('code', 'type')
     def pre_validate(self):
-        super(PartyIdentifier, self).pre_validate()
+        super().pre_validate()
         if (self.type == 'mipago' and self.code
                 and self.check_unique_mipago() > 0):
             self.raise_user_error('unique_mipago', {

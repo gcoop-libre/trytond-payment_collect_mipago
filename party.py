@@ -22,13 +22,9 @@ class PartyIdentifier(metaclass=PoolMeta):
     __name__ = 'party.identifier'
 
     @classmethod
-    def __setup__(cls):
-        super(PartyIdentifier, cls).__setup__()
-        for new_type in [
-                ('mipago', 'MiPago'),
-                ]:
-            if new_type not in cls.type.selection:
-                cls.type.selection.append(new_type)
+    def get_types(cls):
+        types = super().get_types()
+        return types + [('mipago', 'MiPago')]
 
     @fields.depends('code', 'type')
     def pre_validate(self):

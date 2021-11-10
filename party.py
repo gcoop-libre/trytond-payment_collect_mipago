@@ -3,6 +3,8 @@
 
 from trytond.pool import PoolMeta
 from trytond.model import fields
+from trytond.exceptions import UserError
+from trytond.i18n import gettext
 
 
 class Party(metaclass=PoolMeta):
@@ -27,24 +29,20 @@ class PartyIdentifier(metaclass=PoolMeta):
                 ]:
             if new_type not in cls.type.selection:
                 cls.type.selection.append(new_type)
-        cls._error_messages.update({
-                'unique_mipago': ('There is another party with the'
-                    ' same code "%(code)s"'),
-                })
-
-    def check_unique_mipago(self):
-        return self.search_count([
-            ('code', '=', self.code),
-            ('type', '=', 'mipago'),
-            ('party', '!=', self.party),
-            ('party.active', '=', True),
-            ])
 
     @fields.depends('code', 'type')
     def pre_validate(self):
         super().pre_validate()
-        if (self.type == 'mipago' and self.code
-                and self.check_unique_mipago() > 0):
-            self.raise_user_error('unique_mipago', {
-                    'code': self.code,
-                    })
+        self.check_unique_mipago()
+
+    def check_unique_mipago(self):
+        if self.type == 'mipago' and self.code:
+            if self.search_count([
+                    ('code', '=', self.code),
+                    ('type', '=', 'mipago'),
+                    ('party', '!=', self.party),
+                    ('party.active', '=', True),
+                    ]) > 0:
+                raise UserError(gettext(
+                    'payment_collect_mipago.msg_unique_mipago',
+                    code=self.code))

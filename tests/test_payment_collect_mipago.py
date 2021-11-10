@@ -1,6 +1,5 @@
-# The COPYRIGHT file at the top level of this repository contains
-# the full copyright notices and license terms.
-
+# This file is part of Tryton.  The COPYRIGHT file at the top level of
+# this repository contains the full copyright notices and license terms.
 import unittest
 import doctest
 
@@ -19,7 +18,8 @@ def suite():
     suite = test_suite()
     suite.addTests(unittest.TestLoader().loadTestsFromTestCase(
             PaymentCollectMipagoTestCase))
-    suite.addTests(doctest.DocFileSuite('scenario_payment_collect_mipago.rst',
+    suite.addTests(doctest.DocFileSuite(
+            'scenario_payment_collect_mipago.rst',
             tearDown=doctest_teardown, encoding='utf-8',
             checker=doctest_checker,
             optionflags=doctest.REPORT_ONLY_FIRST_FAILURE))

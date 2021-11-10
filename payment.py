@@ -1,35 +1,36 @@
 # This file is part of the payment_collect_mipago module for Tryton.
 # The COPYRIGHT file at the top level of this repository contains
 # the full copyright notices and license terms.
+import io
+import csv
+import logging
 from decimal import Decimal
 
-import logging
+from trytond.model import ModelStorage
 from trytond.pool import Pool
 from trytond.modules.payment_collect.payments import PaymentMixIn
-from trytond.model import ModelStorage
-from trytond.transaction import Transaction
-logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
 
 RETORNOS_MIPAGO = {
     'Pagado': 'Pagado',
-}
+    }
+_SEPARATOR = ','
 
 
 class PayModeMiPago(ModelStorage, PaymentMixIn):
     'Pay Mode MiPago'
     __name__ = 'payment.paymode.mipago'
 
-    _SEPARATOR = ','
-
     def return_collect(self, start):
+        logger.info("return_collect: MiPago")
         super().return_collect(start, RETORNOS_MIPAGO)
         pool = Pool()
-        CollectTransaction = pool.get('payment.collect.transaction')
-        Company = pool.get('company.company')
         Configuration = pool.get('payment_collect.configuration')
         Invoice = pool.get('account.invoice')
-        Date = pool.get('ir.date')
+        CollectTransaction = pool.get('payment.collect.transaction')
+
+
         collect = self.attach_collect()
         collect.create_invoices_button = start.create_invoices
         collect.save()
@@ -39,7 +40,8 @@ class PayModeMiPago(ModelStorage, PaymentMixIn):
         payment_method = config.payment_method
         if config.payment_method_mipago:
             payment_method = config.payment_method_mipago
-        today = Date.today()
+
+        pay_date = pool.get('ir.date').today()
 
         data = io.StringIO(collect.attachments[0].data.decode('utf8'))
         reader = csv.DictReader(data, delimiter=_SEPARATOR)
@@ -48,7 +50,6 @@ class PayModeMiPago(ModelStorage, PaymentMixIn):
             if row.get('transaction_state', '') == 'Pagada':
                 title, move = row.get('transaction_title', '').split('::')
                 customer_identifier = row.get('customer_identifier')
-                tr_id = row.get('transaction_id')
                 tr_paid_amount = Decimal(row.get('transaction_paid_amount'))
                 try:
                     invoice, = Invoice.search([
@@ -57,7 +58,7 @@ class PayModeMiPago(ModelStorage, PaymentMixIn):
                         ('party.code', '=', customer_identifier),
                         ])
                 except ValueError:
-                    logger.error('invoice move %s does not exists',  move)
+                    logger.error('invoice move %s does not exists', move)
 
                 if tr_paid_amount > invoice.total_amount:
                     # add credit with the difference
@@ -65,7 +66,7 @@ class PayModeMiPago(ModelStorage, PaymentMixIn):
                     self.add_credit(invoice, diff_amount, payment_method)
 
                 collect_tr = CollectTransaction(
-                    collect_result='A', # paid accepeted
+                    collect_result='A',  # paid accepeted
                     collect_message='Pagada',
                     collect=collect,
                     pay_date=today,
@@ -80,12 +81,12 @@ class PayModeMiPago(ModelStorage, PaymentMixIn):
     def add_credit(cls, invoice, amount, payment_method):
         pool = Pool()
         Move = pool.get('account.move')
-        Company = pool.get('company.company')
         Period = pool.get('account.period')
         Date = pool.get('ir.date')
-        today = Date.today()
-        move = Move()
 
+        today = Date.today()
+
+        move = Move()
         move.period = Period.find(invoice.company, date=today)
         move.journal = payment_method.journal
         move.date = today

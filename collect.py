@@ -7,7 +7,6 @@ import logging
 from decimal import Decimal, ROUND_HALF_EVEN
 
 from trytond.pool import PoolMeta, Pool
-from trytond.model import Workflow, ModelView
 from trytond.transaction import Transaction
 from trytond.bus import notify
 
@@ -30,7 +29,6 @@ class Collect(metaclass=PoolMeta):
 
         pool = Pool()
         AccountConfig = pool.get('account.configuration')
-        Account = pool.get('account.account')
         Address = pool.get('party.address')
         ContactMechanism = pool.get('party.contact_mechanism')
         CollectTransaction = pool.get('payment.collect.transaction')
@@ -42,11 +40,12 @@ class Collect(metaclass=PoolMeta):
         PartyIdentifier = pool.get('party.identifier')
         Tax = pool.get('account.tax')
         Date = pool.get('ir.date')
+
         config = Configuration(1)
         payment_method = config.payment_method
         if config.payment_method_mipago:
             payment_method = config.payment_method_mipago
-        parties = []
+
         all_invoices = []
         to_create = []
         to_update = []
@@ -60,7 +59,6 @@ class Collect(metaclass=PoolMeta):
         today = Date.today()
         if Transaction().context.get('company'):
             company = Company(Transaction().context['company'])
-            currency = company.currency
         notify('Creando comprobantes')
         for collect in collects:
             if (collect.create_invoices_button and
@@ -86,7 +84,8 @@ class Collect(metaclass=PoolMeta):
                                     code=row.get('customer_email'))
                                 ],
                             contact_mechanisms=[
-                                ContactMechanism(type='email', value=row.get('customer_email'),
+                                ContactMechanism(type='email',
+                                    value=row.get('customer_email'),
                                     invoice=True),
                                 ],
                             addresses=[
@@ -99,7 +98,7 @@ class Collect(metaclass=PoolMeta):
                         ])
                     if found_invoices:
                         invoice, = found_invoices
-                        if invoice.state in ['posted', 'paid', 'canceled']:
+                        if invoice.state in ['posted', 'paid', 'cancelled']:
                             continue
                         to_update.append(invoice)
                         total_amount = invoice.total_amount
@@ -134,7 +133,8 @@ class Collect(metaclass=PoolMeta):
                         pattern = invoice_line._get_tax_rule_pattern()
                         party = invoice.party
                         if party.customer_tax_rule:
-                            tax_ids = party.customer_tax_rule.apply(None, pattern)
+                            tax_ids = party.customer_tax_rule.apply(None,
+                                pattern)
                             if tax_ids:
                                 taxes.extend(tax_ids)
                         invoice_line.taxes = taxes
@@ -146,7 +146,7 @@ class Collect(metaclass=PoolMeta):
                     if (invoice.state != 'paid' and
                             row.get('transaction_state') == 'Pagada'):
                             collect_tr = CollectTransaction(
-                                collect_result='A', # paid accepeted
+                                collect_result='A',  # paid accepeted
                                 collect_message=row.get('transaction_state'),
                                 collect=collect,
                                 pay_date=today,
@@ -156,7 +156,7 @@ class Collect(metaclass=PoolMeta):
                     elif (invoice.state != 'paid' and
                             row.get('transaction_state') != 'Pagada'):
                             collect_tr = CollectTransaction(
-                                collect_result='R', # paid pending
+                                collect_result='R',  # paid pending
                                 collect_message=row.get('transaction_state'),
                                 collect=collect,
                                 pay_date=today,

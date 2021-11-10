@@ -11,7 +11,6 @@ from trytond.model import Workflow, ModelView
 from trytond.transaction import Transaction
 from trytond.bus import notify
 
-__all__ = ['Collect', 'CollectReturnStart']
 logger = logging.getLogger(__name__)
 
 

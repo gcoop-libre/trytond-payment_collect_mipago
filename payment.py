@@ -10,7 +10,6 @@ from trytond.model import ModelStorage
 from trytond.transaction import Transaction
 logger = logging.getLogger(__name__)
 
-__all__ = ['PayModeMiPago']
 
 RETORNOS_MIPAGO = {
     'Pagado': 'Pagado',
